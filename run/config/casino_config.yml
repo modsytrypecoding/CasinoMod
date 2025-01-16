@@ -1,0 +1,5 @@
+winningNumber: 1
+loseMessages: []
+winMessages: []
+winMultiplier: 3.0
+numberRange: 2

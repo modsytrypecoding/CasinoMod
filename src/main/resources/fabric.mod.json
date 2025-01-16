@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "casino",
+  "version": "1.0.0",
+  "name": "CasinoMod",
+  "environment": "*",
+  "description": "CasinoMod",
+  "authors": ["Modstrype"],
+  "contact": {
+
+  },
+  "mixins": [
+    "mixins.casinomod.json"
+  ],
+
+  "entrypoints": {
+    "client": [
+      "org.Modstrype.core.Main"
+    ]
+  },
+  "depends": {
+    "fabricloader": "0.16.9",
+    "fabric": "*",
+    "minecraft": "1.21.1"
+  }
+}

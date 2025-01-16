@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "org.Modstrype.CasinoMod",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ChatMessageMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

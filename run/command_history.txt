@@ -1,0 +1,15 @@
+/con
+/control
+/control Player257
+/gamemode creative
+/control
+/control Player543
+/control
+/test
+/Pay TestPlayer 20
+/control
+/test
+/test_command
+/test
+/test_command
+/pay Player624 200

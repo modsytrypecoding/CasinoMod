@@ -1,0 +1,36 @@
+{
+  "minecraft:recipes/misc/charcoal": {
+    "criteria": {
+      "has_log": "2025-01-08 16:46:28 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/crafting_table": {
+    "criteria": {
+      "unlock_right_away": "2025-01-08 16:46:28 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/building_blocks/pale_oak_planks": {
+    "criteria": {
+      "has_log": "2025-01-08 16:46:28 +0100"
+    },
+    "done": true
+  },
+  "minecraft:adventure/adventuring_time": {
+    "criteria": {
+      "minecraft:forest": "2025-01-08 16:46:29 +0100",
+      "minecraft:cherry_grove": "2025-01-08 16:47:55 +0100",
+      "minecraft:river": "2025-01-08 16:47:03 +0100",
+      "minecraft:plains": "2025-01-08 16:46:39 +0100"
+    },
+    "done": false
+  },
+  "minecraft:recipes/building_blocks/pale_oak_wood": {
+    "criteria": {
+      "has_log": "2025-01-08 16:46:28 +0100"
+    },
+    "done": true
+  },
+  "DataVersion": 4189
+}
