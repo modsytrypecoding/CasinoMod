@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.MinecraftClient;
@@ -13,6 +14,9 @@ import net.minecraft.util.Formatting;
 import java.io.*;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class Main implements ClientModInitializer {
 
@@ -25,12 +29,14 @@ public class Main implements ClientModInitializer {
     private double winMultiplier = 2.0;
     private int minBet = 100;
     private int maxBet = 100000;
-    private  String CommandPräfix = "?";
+    private String CommandPräfix = "?";
 
     private List<String> winMessages = new ArrayList<>();
     private List<String> loseMessages = new ArrayList<>();
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+    private static final Logger LOGGER = Logger.getLogger("CasinoMod");
 
     public Main() {
         instance = this;
@@ -38,8 +44,7 @@ public class Main implements ClientModInitializer {
 
     private final File configDirectory = new File(MinecraftClient.getInstance().runDirectory, "config/casino_mod");
     private final File configFile = new File(configDirectory, "casino_config.json");
-
-
+    private final File logFile = new File(configDirectory, "casino_debug.log");
 
     public static Main getInstance() {
         return instance;
@@ -47,12 +52,16 @@ public class Main implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        System.out.println("[CasinoMod] client-side mod wird Initialisiert...");
+        setupLogger();
+        LOGGER.info("[CasinoMod] client-side mod wird initialisiert...");
         loadConfig();
+
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> resetDebugLog());
 
         // Register handler
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
             if (message.startsWith(CommandPräfix)) {
+                LOGGER.info("[CasinoMod] Custom Command empfangen: " + message);
                 handleCustomCommand(message.substring(1).trim());
                 return false;
             }
@@ -62,6 +71,7 @@ public class Main implements ClientModInitializer {
         // Register join event
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             casinoPlayers.clear();
+            LOGGER.info("[CasinoMod] Spieler hat sich verbunden. Casino-Spieler zurückgesetzt.");
 
             assert client.player != null;
             client.player.sendMessage(
@@ -70,24 +80,56 @@ public class Main implements ClientModInitializer {
             );
         });
 
-        System.out.println("[CasinoMod] Client-side Mod erfolgreich initialisiert!");
+        LOGGER.info("[CasinoMod] Client-side Mod erfolgreich initialisiert!");
+    }
+
+    private void setupLogger() {
+        try {
+            if (!configDirectory.exists()) {
+                configDirectory.mkdirs();
+            }
+
+            FileHandler fileHandler = new FileHandler(logFile.getAbsolutePath(), true);
+            fileHandler.setFormatter(new SimpleFormatter());
+            LOGGER.addHandler(fileHandler);
+            LOGGER.setUseParentHandlers(false);
+        } catch (IOException e) {
+            System.err.println("[CasinoMod] Fehler beim Initialisieren des Loggers:");
+            e.printStackTrace();
+        }
+    }
+
+    private void resetDebugLog() {
+        LOGGER.info("[CasinoMod] Spiel wird geschlossen. Debug-Log wird zurückgesetzt.");
+
+        if (logFile.exists()) {
+            try (FileWriter writer = new FileWriter(logFile)) {
+                writer.write(""); // Leert die Datei
+            } catch (IOException e) {
+                LOGGER.severe("[CasinoMod] Fehler beim Zurücksetzen des Debug-Logs: " + e.getMessage());
+            }
+        }
     }
 
     public void processMessage(String sender, int amount) {
+        LOGGER.info("[CasinoMod] Verarbeite Nachricht von Spieler: " + sender + " mit Betrag: " + amount);
         assert MinecraftClient.getInstance().player != null;
         String playerName = MinecraftClient.getInstance().player.getGameProfile().getName();
 
         if (!casinoPlayers.containsKey(playerName) || !casinoPlayers.get(playerName)) {
-            return; // Ignore if user is not in Hash
+            LOGGER.info("[CasinoMod] Spieler " + playerName + " ist nicht für das Casino registriert.");
+            return;
         }
 
         if (amount < minBet) {
+            LOGGER.warning("[CasinoMod] Betrag zu gering: " + amount);
             sendChatMessage(sender, "[BOT] Der Betrag ist zu gering, um zu spielen (min: " + minBet + ").");
             refundAmount(sender, amount);
             return;
         }
 
         if (amount > maxBet) {
+            LOGGER.warning("[CasinoMod] Betrag überschreitet Maximum: " + amount);
             sendChatMessage(sender, "[BOT] Der Betrag überschreitet das Maximum (max: " + maxBet + ").");
             refundAmount(sender, amount);
             return;
@@ -95,17 +137,27 @@ public class Main implements ClientModInitializer {
 
         Random random = new Random();
         int randomNumber = random.nextInt(numberRange) + 1;
+        LOGGER.info("[CasinoMod] Zufallszahl generiert: " + randomNumber);
 
         if (randomNumber == winningNumber) {
             int payout = (int) (amount * winMultiplier);
+            LOGGER.info("[CasinoMod] Spieler hat gewonnen. Auszahlung: " + payout);
             payPlayer(sender, payout);
             sendChatMessage(sender, getRandomMessage(winMessages));
         } else {
+            LOGGER.info("[CasinoMod] Spieler hat verloren.");
             sendChatMessage(sender, getRandomMessage(loseMessages));
         }
     }
 
+    private String getRandomMessage(List<String> messages) {
+        Random random = new Random();
+        assert MinecraftClient.getInstance().player != null;
+        return messages.get(random.nextInt(messages.size())).replace("{player}", MinecraftClient.getInstance().player.getGameProfile().getName());
+    }
+
     private void handleCustomCommand(String command) {
+        LOGGER.info("[CasinoMod] Command verarbeitet: " + command);
         assert MinecraftClient.getInstance().player != null;
         String playerName = MinecraftClient.getInstance().player.getGameProfile().getName();
 
@@ -114,12 +166,14 @@ public class Main implements ClientModInitializer {
                 sendPlayerMessage("[CasinoMod] Du hast den CasinoMod bereits aktiviert!", Formatting.YELLOW);
             } else {
                 casinoPlayers.put(playerName, true);
+                LOGGER.info("[CasinoMod] Spieler " + playerName + " hat CasinoMod aktiviert.");
                 sendPlayerMessage("[CasinoMod] Der CasinoMod wurde erfolgreich aktiviert!", Formatting.GREEN);
             }
         } else if (command.equalsIgnoreCase("casino off")) {
             if (casinoPlayers.containsKey(playerName) && casinoPlayers.get(playerName)) {
                 casinoPlayers.remove(playerName);
-                sendPlayerMessage(" [CasinoMod] Du hast den CasinoMod deaktiviert.", Formatting.RED);
+                LOGGER.info("[CasinoMod] Spieler " + playerName + " hat CasinoMod deaktiviert.");
+                sendPlayerMessage("[CasinoMod] Du hast den CasinoMod deaktiviert.", Formatting.RED);
             } else {
                 sendPlayerMessage("[CasinoMod] Der CasinoMod ist nicht aktiviert.", Formatting.YELLOW);
             }
@@ -133,6 +187,7 @@ public class Main implements ClientModInitializer {
     }
 
     private void handleConfigCommand(String command) {
+        LOGGER.info("[CasinoMod] Konfigurationsbefehl verarbeitet: " + command);
         String[] args = command.split(" ");
         if (args.length == 7) {
             try {
@@ -153,37 +208,32 @@ public class Main implements ClientModInitializer {
                         Formatting.GREEN
                 );
             } catch (NumberFormatException e) {
+                LOGGER.severe("[CasinoMod] Fehler beim Parsen der Konfigurationswerte.");
                 sendPlayerMessage("[CasinoMod] Bei deinen Eingaben stimmt etwas nicht!", Formatting.RED);
             }
         } else {
-            sendPlayerMessage("Command: " + CommandPräfix +"casino config <range> <winning number> <multiplier> <min bet> <max bet>", Formatting.YELLOW);
+            sendPlayerMessage("Command: " + CommandPräfix + "casino config <range> <winning number> <multiplier> <min bet> <max bet>", Formatting.YELLOW);
         }
     }
 
-    private void displayHelp() {
-        sendPlayerMessage("[CasinoMod Help]", Formatting.GOLD);
-        sendPlayerMessage(CommandPräfix +"casino - Aktiviert den CasinoMod", Formatting.GREEN);
-        sendPlayerMessage(CommandPräfix +"casino off - Deaktiviert den CasinoMod", Formatting.GREEN);
-        sendPlayerMessage(CommandPräfix +"casino config <range> <winning number> <multiplier> <min bet> <max bet> - Konfigurationseinstellungen", Formatting.GREEN);
-        sendPlayerMessage(CommandPräfix +"casino help - Zeigt diese hilfreiche Nachricht ;)", Formatting.GREEN);
-    }
-
     private void sendPlayerMessage(String message, Formatting color) {
+        LOGGER.info("[CasinoMod] Nachricht an Spieler: " + message);
         assert MinecraftClient.getInstance().player != null;
         MinecraftClient.getInstance().player.sendMessage(Text.literal(message).formatted(color), false);
     }
 
     private void sendChatMessage(String recipient, String message) {
+
         assert MinecraftClient.getInstance().player != null;
         String command = "msg " + recipient + " " + message;
         MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
-        System.out.println("[CasinoMod] Folgender Command wurde gesendet: " + command);
+        LOGGER.info("[CasinoMod] Nachricht an Chat gesendet: " + command);
     }
 
     private void refundAmount(String sender, int amount) {
+        LOGGER.info("[CasinoMod] Betrag zurückerstattet: " + amount + " an " + sender);
         assert MinecraftClient.getInstance().player != null;
         String command = "pay " + sender + " " + amount;
-
         MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
 
         if (amount >= 5000) {
@@ -193,22 +243,27 @@ public class Main implements ClientModInitializer {
     }
 
     private void payPlayer(String recipient, int amount) {
+        LOGGER.info("[CasinoMod] Auszahlung an " + recipient + ": " + amount);
         assert MinecraftClient.getInstance().player != null;
         String command = "pay " + recipient + " " + amount;
-
         MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
 
         if (amount >= 5000) {
             String confirmCommand = command + " confirm";
-            System.out.println("[CasinoMod] Chat confirm command sent: " + confirmCommand); // Log the confirm command
             MinecraftClient.getInstance().player.networkHandler.sendChatCommand(confirmCommand);
         }
     }
+    public boolean isPlayerInCasino(String playerName) {
+        return casinoPlayers.getOrDefault(playerName, false);
+    }
 
-    private String getRandomMessage(List<String> messages) {
-        Random random = new Random();
-        assert MinecraftClient.getInstance().player != null;
-        return messages.get(random.nextInt(messages.size())).replace("{player}", MinecraftClient.getInstance().player.getGameProfile().getName());
+
+    private void displayHelp() {
+        sendPlayerMessage("[CasinoMod Help]", Formatting.GOLD);
+        sendPlayerMessage(CommandPräfix + "casino - Aktiviert den CasinoMod", Formatting.GREEN);
+        sendPlayerMessage(CommandPräfix + "casino off - Deaktiviert den CasinoMod", Formatting.GREEN);
+        sendPlayerMessage(CommandPräfix + "casino config <range> <winning number> <multiplier> <min bet> <max bet> - Konfigurationseinstellungen", Formatting.GREEN);
+        sendPlayerMessage(CommandPräfix + "casino help - Zeigt diese hilfreiche Nachricht ;)", Formatting.GREEN);
     }
 
     private void saveConfig() {
@@ -223,8 +278,9 @@ public class Main implements ClientModInitializer {
 
         try (Writer writer = new FileWriter(configFile)) {
             gson.toJson(data, writer);
-            System.out.println("[CasinoMod] Konfiguration gespeichert.");
+            LOGGER.info("[CasinoMod] Konfiguration gespeichert.");
         } catch (Exception e) {
+            LOGGER.severe("[CasinoMod] Fehler beim Speichern der Konfiguration:");
             e.printStackTrace();
         }
     }
@@ -270,10 +326,10 @@ public class Main implements ClientModInitializer {
                     }
                 }
 
-                System.out.println("[CasinoMod] Konfiguration erfolgreich geladen.");
+                LOGGER.info("[CasinoMod] Konfiguration erfolgreich geladen.");
             }
         } catch (Exception e) {
-            System.err.println("[CasinoMod] Beim laden der Konfigurationsdatei hat etwas nicht geklappt:");
+            LOGGER.severe("[CasinoMod] Beim Laden der Konfigurationsdatei hat etwas nicht geklappt:");
             e.printStackTrace();
         }
     }
@@ -333,11 +389,10 @@ public class Main implements ClientModInitializer {
 
         try (Writer writer = new FileWriter(configFile)) {
             gson.toJson(defaultData, writer);
-            System.out.println("[CasinoMod] Standardkonfiguration erstellt.");
+            LOGGER.info("[CasinoMod] Standardkonfiguration erstellt.");
         } catch (Exception e) {
-            System.err.println("[CasinoMod] Fehler beim Speichern der Standardkonfiguration:");
+            LOGGER.severe("[CasinoMod] Fehler beim Speichern der Standardkonfiguration:");
             e.printStackTrace();
         }
     }
-
 }
