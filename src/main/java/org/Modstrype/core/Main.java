@@ -177,6 +177,7 @@ public class Main implements ClientModInitializer {
         assert MinecraftClient.getInstance().player != null;
         String command = "msg " + recipient + " " + message;
         MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
+        System.out.println("[CasinoMod] Folgender Command wurde gesendet: " + command);
     }
 
     private void refundAmount(String sender, int amount) {
