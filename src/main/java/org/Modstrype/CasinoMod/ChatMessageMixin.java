@@ -21,7 +21,7 @@ public class ChatMessageMixin {
     private void onAddMessage(Text message, CallbackInfo ci) {
         String messageContent = message.getString();
 
-        // Filter für Nachrichten im Format "CityBuild » Du hast $<Betrag> von <Spieler> erhalten"
+        // filter Format messages "CityBuild » Du hast $<Betrag> von <Spieler> erhalten"
         Pattern pattern = Pattern.compile("CityBuild.* Du hast \\$(\\d{1,3}(?:,\\d{3})*) von ([^ ]+) erhalten.*");
         Matcher matcher = pattern.matcher(messageContent);
 

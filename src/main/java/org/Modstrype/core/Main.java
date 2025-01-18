@@ -104,7 +104,7 @@ public class Main implements ClientModInitializer {
 
         if (logFile.exists()) {
             try (FileWriter writer = new FileWriter(logFile)) {
-                writer.write(""); // Leert die Datei
+                writer.write(""); // clears file
             } catch (IOException e) {
                 LOGGER.severe("[CasinoMod] Fehler beim Zurücksetzen des Debug-Logs: " + e.getMessage());
             }
@@ -289,7 +289,7 @@ public class Main implements ClientModInitializer {
         try {
             if (!configFile.exists()) {
                 configDirectory.mkdirs();
-                saveDefaultConfig(); // Save default config if it doesn't exist
+                saveDefaultConfig(); // Save default config if not there
             }
 
             try (Reader reader = new FileReader(configFile)) {
